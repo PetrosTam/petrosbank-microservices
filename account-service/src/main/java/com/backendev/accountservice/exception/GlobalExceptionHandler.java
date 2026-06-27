@@ -45,6 +45,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(httpErrorResponse);
     }
 
+    @ExceptionHandler(AccountLimitExceededException.class)
+    public ResponseEntity<HttpErrorResponse> handleAccountLimitExceededException(AccountLimitExceededException exception) {
+        HttpErrorResponse httpErrorResponse = new HttpErrorResponse(
+                HttpStatus.CONFLICT,
+                exception.getMessage(),
+                "Account limit exceeded."
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(httpErrorResponse);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<HttpErrorResponse> handleGenericException(Exception exception) {
         HttpErrorResponse httpErrorResponse = new HttpErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR,
