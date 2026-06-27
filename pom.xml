@@ -18,6 +18,7 @@
         <module>transaction-service</module>
         <module>notification-service</module>
         <module>eureka-server</module>
+        <module>api-gateway</module>
     </modules>
 </project>
 
