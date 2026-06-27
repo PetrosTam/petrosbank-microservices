@@ -1,0 +1,11 @@
+eureka:
+  client:
+    enabled: false
+  instance:
+    prefer-ip-address: true
+
+spring:
+  cloud:
+    service-registry:
+      auto-registration:
+        enabled: false
