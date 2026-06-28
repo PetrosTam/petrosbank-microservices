@@ -2,6 +2,7 @@ package com.backendev.apigateway;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -18,6 +19,7 @@ public class CorrelationIdFilter implements GlobalFilter, Ordered {
     private static final Logger log = LoggerFactory.getLogger(CorrelationIdFilter.class);
 
     private static final String CORRELATION_ID_HEADER = "X-Correlation-ID";
+    private static final String CORRELATION_ID_MDC_KEY = "correlationId";
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -47,6 +49,8 @@ public class CorrelationIdFilter implements GlobalFilter, Ordered {
             return Mono.empty();
         });
 
+        MDC.put(CORRELATION_ID_MDC_KEY, finalCorrelationId);
+
         log.info(
                 "Gateway request received. correlationId={}, method={}, path={}",
                 finalCorrelationId,
@@ -54,7 +58,8 @@ public class CorrelationIdFilter implements GlobalFilter, Ordered {
                 requestWithCorrelationId.getURI().getPath()
         );
 
-        return chain.filter(exchangeWithCorrelationId);
+        return chain.filter(exchangeWithCorrelationId)
+                .doFinally(signalType -> MDC.remove(CORRELATION_ID_MDC_KEY));
     }
 
     @Override

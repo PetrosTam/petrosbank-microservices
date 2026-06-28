@@ -36,6 +36,19 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
 
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [api-gateway] [correlationId=%X{correlationId:-N/A}] [%thread] %logger{36} - %msg%n"
+  level:
+    org:
+      springframework:
+        cloud:
+          gateway: DEBUG
+    reactor:
+      netty:
+        http:
+          client: INFO
+
 management:
   endpoints:
     web:
