@@ -3,12 +3,14 @@ package com.backendev.userservice.unit.service;
 import com.backendev.userservice.audit.AuditEventType;
 import com.backendev.userservice.dto.AuthRequest;
 import com.backendev.userservice.dto.AuthResponse;
+import com.backendev.userservice.entity.RefreshToken;
 import com.backendev.userservice.entity.Roles;
 import com.backendev.userservice.entity.Users;
 import com.backendev.userservice.security.AppUserDetails;
 import com.backendev.userservice.security.jwt.JwtService;
 import com.backendev.userservice.service.AuditService;
 import com.backendev.userservice.service.LoginService;
+import com.backendev.userservice.service.RefreshTokenService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -48,52 +51,58 @@ class LoginServiceTest {
     private AuditService auditService;
 
     @Mock
-    private Authentication authentication;
+    private RefreshTokenService refreshTokenService;
 
     @Mock
-    private AppUserDetails appUserDetails;
+    private Authentication authentication;
 
     @InjectMocks
     private LoginService loginService;
 
     private AuthRequest authRequest;
-
-
+    private AppUserDetails appUserDetails;
 
     @BeforeEach
     void setUp() {
         String testEmail = "test@example.com";
         String testPassword = "password123";
         Long testUserId = 1L;
-        Users userEntity;
 
-        Roles userRole = new Roles(0L,"ROLE_USER");
-        userEntity = new Users();
+        Roles userRole = new Roles(0L, "ROLE_USER");
+
+        Users userEntity = new Users();
         userEntity.setId(testUserId);
         userEntity.setEmail(testEmail);
         userEntity.setPassword(testPassword);
         userEntity.setRoles(Set.of(userRole));
-        appUserDetails = new AppUserDetails(userEntity);
 
+        appUserDetails = new AppUserDetails(userEntity);
         authentication = mock(Authentication.class);
         authRequest = new AuthRequest(testEmail, testPassword);
     }
 
     @Test
     void login_shouldReturnAuthResponse_whenCredentialsAreValid() {
+        RefreshToken mockRefreshToken = new RefreshToken();
+        mockRefreshToken.setToken("mock-refresh-token");
+        mockRefreshToken.setExpiryDate(Instant.now().plusSeconds(604800));
+
         when(authenticationManager.authenticate(any())).thenReturn(authentication);
         when(authentication.isAuthenticated()).thenReturn(true);
         when(authentication.getPrincipal()).thenReturn(appUserDetails);
         when(jwtService.generateToken(eq(appUserDetails.getUsername()), anyMap())).thenReturn("mocked-jwt-token");
         when(jwtService.extractExpiration("mocked-jwt-token")).thenReturn(Date.from(Instant.now().plusSeconds(3600)));
+        when(refreshTokenService.createRefreshToken(anyString())).thenReturn(mockRefreshToken);
 
         AuthResponse response = loginService.login(authRequest);
 
         assertEquals("mocked-jwt-token", response.getAccessToken());
+        assertEquals("mock-refresh-token", response.getRefreshToken());
         assertEquals("test@example.com", response.getEmail());
         assertEquals(List.of("ROLE_USER"), response.getRoles());
         assertNotNull(response.getExpiration());
 
+        verify(refreshTokenService).createRefreshToken("test@example.com");
         verify(auditService).auditLog(AuditEventType.LOGIN_SUCCESS, "test@example.com", "Login successful");
     }
 
@@ -102,10 +111,13 @@ class LoginServiceTest {
         when(authenticationManager.authenticate(any())).thenReturn(authentication);
         when(authentication.isAuthenticated()).thenReturn(false);
 
-        BadCredentialsException exception = assertThrows(BadCredentialsException.class, () -> loginService.login(authRequest));
+        BadCredentialsException exception = assertThrows(
+                BadCredentialsException.class,
+                () -> loginService.login(authRequest)
+        );
 
         assertEquals("Invalid credentials", exception.getMessage());
+        verify(refreshTokenService, never()).createRefreshToken(anyString());
         verify(auditService, never()).auditLog(any(), any(), any());
     }
-
 }
