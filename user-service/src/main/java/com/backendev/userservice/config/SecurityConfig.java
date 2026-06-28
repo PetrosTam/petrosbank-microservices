@@ -27,17 +27,17 @@ public class SecurityConfig {
 
     @Bean
     @Primary
-    public UserDetailsService userDetailsService(UsersRepository usersRepository){
+    public UserDetailsService userDetailsService(UsersRepository usersRepository) {
         return new AppUserServiceDetails(usersRepository);
     }
 
     @Bean
-    public PasswordEncoder passwordEncoder(){
+    public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
     @Bean
-    public AuthenticationProvider authenticationProvider(UserDetailsService userDetailsService, PasswordEncoder passwordEncoder){
+    public AuthenticationProvider authenticationProvider(UserDetailsService userDetailsService, PasswordEncoder passwordEncoder) {
         DaoAuthenticationProvider authenticationProvider = new DaoAuthenticationProvider();
         authenticationProvider.setUserDetailsService(userDetailsService);
         authenticationProvider.setPasswordEncoder(passwordEncoder);
@@ -45,23 +45,34 @@ public class SecurityConfig {
     }
 
     @Bean
-    public JwtFilter jwtFilter(JwtService jwtService, AppUserServiceDetails userServiceDetails){
+    public JwtFilter jwtFilter(JwtService jwtService, AppUserServiceDetails userServiceDetails) {
         return new JwtFilter(jwtService, userServiceDetails);
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity, JwtFilter jwtFilter, AuthenticationProvider authenticationProvider) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity httpSecurity,
+            JwtFilter jwtFilter,
+            AuthenticationProvider authenticationProvider
+    ) throws Exception {
         return httpSecurity
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/**").permitAll()
-                        .requestMatchers("/api/v1/users/register", "/api/v1/users/login", "/api/v1/users/accessAll",
+                        .requestMatchers(
+                                "/api/v1/users/register",
+                                "/api/v1/users/login",
+                                "/api/v1/users/refresh-token",
+                                "/api/v1/users/logout",
+                                "/api/v1/users/accessAll",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
-                                "/swagger-ui.html").permitAll()
+                                "/swagger-ui.html"
+                        ).permitAll()
                         .requestMatchers("/api/v1/users/adminAccess").hasRole("ADMIN")
-                        .requestMatchers("/api/v1/users/accessAll", "/api/v1/users/{id}").hasAnyRole("ADMIN", "USER")
-                        .anyRequest().authenticated())
+                        .requestMatchers("/api/v1/users/{id}").hasAnyRole("ADMIN", "USER")
+                        .anyRequest().authenticated()
+                )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider)
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)

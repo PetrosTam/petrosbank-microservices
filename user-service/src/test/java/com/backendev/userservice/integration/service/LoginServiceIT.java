@@ -4,6 +4,7 @@ import com.backendev.userservice.audit.AuditEventType;
 import com.backendev.userservice.dto.AuthRequest;
 import com.backendev.userservice.dto.AuthResponse;
 import com.backendev.userservice.dto.UserRegistrationRequest;
+import com.backendev.userservice.entity.RefreshToken;
 import com.backendev.userservice.entity.Roles;
 import com.backendev.userservice.entity.Users;
 import com.backendev.userservice.repository.AuditLogRepository;
@@ -12,6 +13,7 @@ import com.backendev.userservice.security.AppUserDetails;
 import com.backendev.userservice.security.jwt.JwtService;
 import com.backendev.userservice.service.AuditService;
 import com.backendev.userservice.service.LoginService;
+import com.backendev.userservice.service.RefreshTokenService;
 import com.backendev.userservice.service.UsersService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,11 +27,13 @@ import org.springframework.security.core.Authentication;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -41,6 +45,9 @@ class LoginServiceIT {
 
     @Mock
     private AuthenticationManager authenticationManager;
+
+    @Mock
+    private RefreshTokenService refreshTokenService;
 
     private LoginService loginService;
 
@@ -63,8 +70,17 @@ class LoginServiceIT {
     void setUp() {
         userRepository.deleteAll();
         auditLogRepository.deleteAll();
-        reset(authenticationManager);
-        loginService = new LoginService(authenticationManager, jwtService, auditService);
+
+        reset(authenticationManager, refreshTokenService);
+
+        RefreshToken mockRefreshToken = new RefreshToken();
+        mockRefreshToken.setToken("mock-refresh-token");
+        mockRefreshToken.setExpiryDate(Instant.now().plusSeconds(604800));
+
+        when(refreshTokenService.createRefreshToken(anyString()))
+                .thenReturn(mockRefreshToken);
+
+        loginService = new LoginService(authenticationManager, jwtService, auditService, refreshTokenService);
     }
 
     @Test
@@ -77,6 +93,7 @@ class LoginServiceIT {
                 .phone("1234567890")
                 .roles(Set.of("ROLE_USER"))
                 .build();
+
         usersService.registerUser(regRequest);
 
         Roles userRole = new Roles();
@@ -89,7 +106,11 @@ class LoginServiceIT {
         mockUser.setRoles(Set.of(userRole));
 
         AppUserDetails userDetails = new AppUserDetails(mockUser);
-        Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                userDetails,
+                null,
+                userDetails.getAuthorities()
+        );
 
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(authentication);
@@ -101,6 +122,7 @@ class LoginServiceIT {
         assertThat(response).isNotNull();
         assertThat(response.getEmail()).isEqualTo("john@example.com");
         assertThat(response.getAccessToken()).isNotBlank();
+        assertThat(response.getRefreshToken()).isEqualTo("mock-refresh-token");
         assertThat(response.getRoles()).contains("ROLE_USER");
         assertThat(response.getExpiration()).isNotNull();
 
@@ -108,9 +130,8 @@ class LoginServiceIT {
         assertThat(auditLogs)
                 .isNotEmpty()
                 .anyMatch(log -> log.getAuditEventType() == AuditEventType.LOGIN_SUCCESS &&
-                        log.getEmail().equals("john@example.com")
-        );    }
-
+                        log.getEmail().equals("john@example.com"));
+    }
 
     @Test
     void testLogin_InvalidCredentials() {
@@ -139,7 +160,11 @@ class LoginServiceIT {
         mockUser.setRoles(Set.of(adminRole, userRole));
 
         AppUserDetails userDetails = new AppUserDetails(mockUser);
-        Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                userDetails,
+                null,
+                userDetails.getAuthorities()
+        );
 
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(authentication);
@@ -150,6 +175,8 @@ class LoginServiceIT {
 
         assertThat(response.getRoles())
                 .contains("ROLE_ADMIN", "ROLE_USER");
+
+        assertThat(response.getRefreshToken()).isEqualTo("mock-refresh-token");
     }
 
     @Test
@@ -164,7 +191,11 @@ class LoginServiceIT {
         mockUser.setRoles(Set.of(userRole));
 
         AppUserDetails userDetails = new AppUserDetails(mockUser);
-        Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                userDetails,
+                null,
+                userDetails.getAuthorities()
+        );
 
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(authentication);
@@ -174,12 +205,15 @@ class LoginServiceIT {
         loginService.login(loginRequest);
 
         verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
+        verify(refreshTokenService).createRefreshToken("john@example.com");
     }
 
     @Test
     void testLogin_NotAuthenticatedThrowsException() {
-        // Mock authentication that returns false for isAuthenticated()
-        Authentication failedAuth = new UsernamePasswordAuthenticationToken("john@example.com", "password123");
+        Authentication failedAuth = new UsernamePasswordAuthenticationToken(
+                "john@example.com",
+                "password123"
+        );
         failedAuth.setAuthenticated(false);
 
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
@@ -203,7 +237,11 @@ class LoginServiceIT {
         mockUser.setRoles(Set.of(userRole));
 
         AppUserDetails userDetails = new AppUserDetails(mockUser);
-        Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                userDetails,
+                null,
+                userDetails.getAuthorities()
+        );
 
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(authentication);
@@ -214,5 +252,6 @@ class LoginServiceIT {
 
         assertThat(response.getExpiration()).isNotNull();
         assertThat(response.getExpiration().getTime()).isGreaterThan(System.currentTimeMillis());
+        assertThat(response.getRefreshToken()).isEqualTo("mock-refresh-token");
     }
 }

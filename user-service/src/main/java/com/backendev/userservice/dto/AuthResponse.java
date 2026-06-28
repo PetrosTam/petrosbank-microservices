@@ -15,6 +15,7 @@ import java.util.List;
 public class AuthResponse {
 
     private String accessToken;
+    private String refreshToken;
     private String email;
     private List<String> roles;
     private Date expiration;
