@@ -40,6 +40,8 @@ eureka:
     hostname: ${EUREKA_INSTANCE_HOSTNAME:localhost}
 
 logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [transaction-service] [correlationId=%X{correlationId:-N/A}] [%thread] %logger{36} - %msg%n"
   level:
     org:
       springframework:
