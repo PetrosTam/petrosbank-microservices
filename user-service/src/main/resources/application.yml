@@ -48,10 +48,10 @@ logging:
   level:
     org:
       springframework:
-        web: DEBUG
-        security: DEBUG
-    com.netflix.eureka: DEBUG
-    com.netflix.discovery: DEBUG
+        web: INFO
+        security: INFO
+    com.netflix.eureka: WARN
+    com.netflix.discovery: WARN
 
 management:
   endpoints:
