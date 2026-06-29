@@ -6,6 +6,7 @@ import org.slf4j.MDC;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
@@ -23,6 +24,8 @@ public class CorrelationIdFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        long startTime = System.currentTimeMillis();
+
         String correlationId = exchange.getRequest()
                 .getHeaders()
                 .getFirst(CORRELATION_ID_HEADER);
@@ -59,7 +62,25 @@ public class CorrelationIdFilter implements GlobalFilter, Ordered {
         );
 
         return chain.filter(exchangeWithCorrelationId)
-                .doFinally(signalType -> MDC.remove(CORRELATION_ID_MDC_KEY));
+                .doFinally(signalType -> {
+                    long durationMs = System.currentTimeMillis() - startTime;
+
+                    MDC.put(CORRELATION_ID_MDC_KEY, finalCorrelationId);
+
+                    HttpStatusCode statusCode = exchangeWithCorrelationId.getResponse().getStatusCode();
+                    String status = statusCode != null ? String.valueOf(statusCode.value()) : "UNKNOWN";
+
+                    log.info(
+                            "Gateway request completed. correlationId={}, method={}, path={}, status={}, durationMs={}",
+                            finalCorrelationId,
+                            requestWithCorrelationId.getMethod(),
+                            requestWithCorrelationId.getURI().getPath(),
+                            status,
+                            durationMs
+                    );
+
+                    MDC.remove(CORRELATION_ID_MDC_KEY);
+                });
     }
 
     @Override
