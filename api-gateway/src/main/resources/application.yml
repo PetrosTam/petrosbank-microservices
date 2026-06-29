@@ -43,11 +43,11 @@ logging:
     org:
       springframework:
         cloud:
-          gateway: DEBUG
+          gateway: INFO
     reactor:
       netty:
         http:
-          client: INFO
+          client: WARN
 
 management:
   endpoints:
