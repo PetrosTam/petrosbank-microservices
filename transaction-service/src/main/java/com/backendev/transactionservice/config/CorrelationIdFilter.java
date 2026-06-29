@@ -29,6 +29,8 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
 
+        long startTime = System.currentTimeMillis();
+
         String correlationId = request.getHeader(CORRELATION_ID_HEADER);
 
         if (correlationId == null || correlationId.isBlank()) {
@@ -48,6 +50,17 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
 
             filterChain.doFilter(request, response);
         } finally {
+            long durationMs = System.currentTimeMillis() - startTime;
+
+            log.info(
+                    "Transaction service request completed. correlationId={}, method={}, path={}, status={}, durationMs={}",
+                    correlationId,
+                    request.getMethod(),
+                    request.getRequestURI(),
+                    response.getStatus(),
+                    durationMs
+            );
+
             MDC.remove(CORRELATION_ID_MDC_KEY);
         }
     }
