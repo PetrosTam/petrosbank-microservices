@@ -59,9 +59,20 @@ management:
     health:
       show-details: when-authorized
   info:
-    app:
-      name: Transaction Service
-      version: 1.0.0
-      description: Service that processes deposits, withdrawals, transfers, and transaction history
-    company:
-      name: Banking App
+    env:
+      enabled: true
+
+info:
+  app:
+    name: Transaction Service
+    version: 1.0.0
+    description: Service that processes deposits, withdrawals, transfers, balance checks, and transaction history
+  technology:
+    java: 17
+    framework: Spring Boot
+    architecture: Microservices
+  domain:
+    bounded-context: Transaction Processing
+    main-responsibilities: Deposits, withdrawals, transfers, balance lookup, transaction history, and account validation
+  messaging:
+    kafka-topic: transaction-events
