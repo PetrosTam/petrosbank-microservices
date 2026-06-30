@@ -4,6 +4,7 @@ server:
 spring:
   application:
     name: notification-service
+
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
@@ -11,6 +12,7 @@ spring:
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
   mail:
     host: smtp.gmail.com
     port: 587
@@ -22,11 +24,13 @@ spring:
           auth: true
           starttls:
             enable: true
+
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/notificationdb}
     username: ${DB_USER:postgres}
     password: ${DB_PASS:postgres}
     driver-class-name: org.postgresql.Driver
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -53,6 +57,49 @@ eureka:
     hostname: ${EUREKA_INSTANCE_HOSTNAME:localhost}
 
 logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [notification-service] [correlationId=%X{correlationId:-N/A}] [%thread] %logger{36} - %msg%n"
   level:
-    com.banking.notificationservice: DEBUG
+    com.banking.notificationservice: INFO
     org.apache.kafka: WARN
+    org.springframework:
+      web: INFO
+    com.netflix.eureka: WARN
+    com.netflix.discovery: WARN
+
+management:
+  health:
+    mail:
+      enabled: false
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,info,env
+  endpoint:
+    health:
+      show-details: when-authorized
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: Notification Service
+    version: 1.0.0
+    description: Service that consumes banking events and handles customer notification workflows
+  technology:
+    java: 17
+    framework: Spring Boot
+    architecture: Microservices
+  domain:
+    bounded-context: Notification Management
+    main-responsibilities: Consuming user, account, and transaction events; storing notification records; and preparing email notifications
+  messaging:
+    kafka-consumer-group: notification-group
+    consumed-topics:
+      user-events: user-events
+      account-events: account-events
+      transaction-events: transaction-events
+  integrations:
+    email-provider: SMTP
+    database: PostgreSQL
