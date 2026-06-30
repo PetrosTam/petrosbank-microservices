@@ -57,3 +57,20 @@ management:
   endpoint:
     health:
       show-details: always
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: API Gateway
+    version: 1.0.0
+    description: Central entry point for routing requests to banking microservices
+  technology:
+    java: 17
+    framework: Spring Boot
+    architecture: Microservices
+  routes:
+    user-service: /api/v1/users/**
+    account-service: /api/v1/accounts/**
+    transaction-service: /api/v1/transactions/**
