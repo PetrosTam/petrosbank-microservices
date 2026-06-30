@@ -62,9 +62,20 @@ management:
     health:
       show-details: when-authorized
   info:
-    app:
-      name: User Service
-      version: 1.0.0
-      description: Service that handles user registration, login, JWT issuance, and profile management
-    company:
-      name: Banking App
+    env:
+      enabled: true
+
+info:
+  app:
+    name: User Service
+    version: 1.0.0
+    description: Service that handles user registration, login, JWT issuance, and profile management
+  technology:
+    java: 17
+    framework: Spring Boot
+    architecture: Microservices
+  domain:
+    bounded-context: Identity and Access Management
+    main-responsibilities: Registration, login, JWT authentication, refresh tokens, and user profiles
+  messaging:
+    kafka-topic: user-events
