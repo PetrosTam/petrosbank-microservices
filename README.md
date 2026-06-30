@@ -19,6 +19,7 @@ This project is intended as a backend engineering portfolio project focused on e
 - [Authentication Flow](#authentication-flow)
 - [Observability](#observability)
 - [Actuator Endpoints](#actuator-endpoints)
+- [Local Health Check Script](#local-health-check-script)
 - [Example API Flow](#example-api-flow)
 - [Project Improvements Implemented](#project-improvements-implemented)
 - [Future Improvements](#future-improvements)
@@ -481,6 +482,47 @@ PowerShell pretty JSON:
 ```powershell
 Invoke-RestMethod -Uri "http://localhost:8084/actuator/info" -Method Get | ConvertTo-Json -Depth 10
 ```
+
+---
+
+## Local Health Check Script
+
+A PowerShell health check script is included to quickly verify that all core services are running locally.
+
+Run from the project root:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\health-check.ps1
+```
+
+The script checks the following services:
+
+| Service | Health Endpoint |
+|---|---|
+| API Gateway | `http://localhost:8080/actuator/health` |
+| User Service | `http://localhost:8081/actuator/health` |
+| Account Service | `http://localhost:8082/actuator/health` |
+| Transaction Service | `http://localhost:8083/actuator/health` |
+| Notification Service | `http://localhost:8084/actuator/health` |
+| Eureka Server | `http://localhost:8761/actuator/health` |
+
+Example output:
+
+```text
+Banking App - Local Health Check
+================================
+
+[UP]   API Gateway
+[UP]   User Service
+[UP]   Account Service
+[UP]   Transaction Service
+[UP]   Notification Service
+[UP]   Eureka Server
+
+All services are healthy.
+```
+
+This is useful after running Docker Compose to confirm that the local microservices environment is ready.
 
 ---
 
