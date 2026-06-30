@@ -59,9 +59,20 @@ management:
     health:
       show-details: when-authorized
   info:
-    app:
-      name: Account Service
-      version: 1.0.0
-      description: Service that manages account creation, balance tracking, and admin-level operations
-    company:
-      name: Banking App
+    env:
+      enabled: true
+
+info:
+  app:
+    name: Account Service
+    version: 1.0.0
+    description: Service that manages account creation, balance tracking, and admin-level operations
+  technology:
+    java: 17
+    framework: Spring Boot
+    architecture: Microservices
+  domain:
+    bounded-context: Account Management
+    main-responsibilities: Account creation, account limits, account status, balance records, and account ownership validation
+  messaging:
+    kafka-topic: account-events
