@@ -1,248 +1,546 @@
-# Banking App
+# PetrosBank Microservices
 
-A modular, secure microservices-based banking application built with **Spring Boot 3.5** and **Java 17**, containerized with Docker and deployed via a fully automated GitHub Actions CI/CD pipeline.
+A Spring Boot banking microservices project built with Java 17, Docker, PostgreSQL, Kafka, Eureka Service Discovery, API Gateway routing, JWT authentication, refresh tokens, structured error responses, correlation ID tracing, request duration logging, and Spring Boot Actuator observability.
+
+This project is intended as a backend engineering portfolio project focused on enterprise-style banking application patterns.
+
+---
 
 ## Table of Contents
 
 - [Overview](#overview)
 - [Architecture](#architecture)
 - [Services](#services)
+- [Key Features](#key-features)
 - [Tech Stack](#tech-stack)
-- [Getting Started](#getting-started)
-- [Running with Docker Compose](#running-with-docker-compose)
-- [Running Services Locally](#running-services-locally)
+- [Running the Project](#running-the-project)
 - [Environment Variables](#environment-variables)
-- [API Documentation](#api-documentation)
-- [Authentication](#authentication)
-- [Kafka & Event Flow](#kafka--event-flow)
-- [CI/CD Pipeline](#cicd-pipeline)
-- [GitHub Secrets Required](#github-secrets-required)
+- [API Gateway Routes](#api-gateway-routes)
+- [Authentication Flow](#authentication-flow)
+- [Observability](#observability)
+- [Actuator Endpoints](#actuator-endpoints)
+- [Example API Flow](#example-api-flow)
+- [Project Improvements Implemented](#project-improvements-implemented)
 - [Future Improvements](#future-improvements)
+- [License](#license)
+
+---
 
 ## Overview
 
-This project demonstrates backend engineering patterns including:
+This project demonstrates a modular banking backend using a microservices architecture.
 
-- Clean microservices separation with independently deployable services
-- JWT-based authentication and role-based access control (RBAC)
-- Asynchronous event-driven communication via Apache Kafka
-- Kafka retry logic, dead letter topics (DLT), and idempotent event processing
-- Eureka-based service discovery
-- Per-service PostgreSQL databases (database-per-service pattern)
-- Multi-architecture Docker builds (amd64 + arm64)
-- Full CI/CD with GitHub Actions
+The system includes separate services for users, accounts, transactions, notifications, service discovery, and API gateway routing. Each main business service owns its own PostgreSQL database and communicates through REST APIs and Kafka events.
 
+The project includes practical enterprise backend features such as:
+
+- Central API Gateway entry point
+- Eureka service discovery
+- JWT authentication
+- Refresh token authentication flow
+- Role-based endpoint protection
+- Per-service PostgreSQL databases
+- Kafka-based event communication
+- Correlation ID propagation
+- Request and response tracing logs
+- Request duration logging
+- Consistent structured error responses
+- Spring Boot Actuator health and info metadata
+- Docker Compose local infrastructure
+
+---
 
 ## Architecture
+
 ![System Architecture](./banking-app-architecture.png)
+
+---
 
 ## Services
 
 | Service | Port | Responsibility |
-|---|---|---|
-| **User Service** | `8081` | User registration, login, JWT issuance, profile management |
-| **Account Service** | `8082` | Account creation, balance tracking, admin operations |
-| **Transaction Service** | `8083` | Deposits, withdrawals, transfers, transaction history |
-| **Notification Service** | `8084` | Consumes Kafka events and sends email notifications |
-| **Eureka Server** | `8761` | Service discovery and registry |
+|---|---:|---|
+| API Gateway | `8080` | Central entry point and route forwarding |
+| User Service | `8081` | Registration, login, JWT issuance, refresh tokens, user profiles |
+| Account Service | `8082` | Account creation, account limits, account status, balance ownership |
+| Transaction Service | `8083` | Deposits, withdrawals, transfers, balance lookup, transaction history |
+| Notification Service | `8084` | Consumes Kafka events and prepares notification workflows |
+| Eureka Server | `8761` | Service registry and discovery |
+| Kafka | `9092` / internal | Event streaming |
+| PostgreSQL Databases | Docker internal | Separate database per service |
 
-Each service is independently deployable, Dockerized, and registered with Eureka.
+---
 
+## Key Features
+
+### API Gateway
+
+All external API requests can go through the API Gateway:
+
+```text
+http://localhost:8080
+```
+
+Gateway routes:
+
+```text
+/api/v1/users/**          -> user-service
+/api/v1/accounts/**       -> account-service
+/api/v1/transactions/**   -> transaction-service
+```
+
+### Authentication
+
+The User Service supports:
+
+- User registration
+- Login with email and password
+- JWT access token generation
+- Refresh token creation
+- Refresh token validation
+- Logout by revoking refresh tokens
+
+Protected endpoints require:
+
+```http
+Authorization: Bearer <access-token>
+```
+
+### Correlation ID Tracing
+
+The system supports request tracing with:
+
+```http
+X-Correlation-ID
+```
+
+If the client does not provide a correlation ID, the API Gateway or service creates one automatically.
+
+The same correlation ID is included in:
+
+- Request logs
+- Response headers
+- Error responses
+- Service logs through MDC
+
+Example log:
+
+```text
+Gateway request completed. correlationId=petros-test-id, method=GET, path=/api/v1/users/accessAll, status=200, durationMs=23
+```
+
+### Structured Error Responses
+
+Error responses include useful debugging metadata:
+
+```json
+{
+  "errorCode": "NOT_FOUND",
+  "errorMessage": "Account number does not exist: 9999999999",
+  "errorDetails": "Account not found. Invalid Account.",
+  "timestamp": "2026-06-29T15:46:44.018Z",
+  "path": "/api/v1/transactions/balance/9999999999",
+  "correlationId": "petros-transaction-duration-test"
+}
+```
+
+### Request Duration Logging
+
+Each main service logs when a request starts and when it completes.
+
+Example:
+
+```text
+Transaction service request received. correlationId=abc-123, method=GET, path=/api/v1/transactions/balance/9999999999
+Transaction service request completed. correlationId=abc-123, method=GET, path=/api/v1/transactions/balance/9999999999, status=404, durationMs=237
+```
+
+### Actuator Metadata
+
+Each service exposes professional metadata through `/actuator/info`.
+
+Example:
+
+```json
+{
+  "app": {
+    "name": "Transaction Service",
+    "version": "1.0.0",
+    "description": "Service that processes deposits, withdrawals, transfers, balance checks, and transaction history"
+  },
+  "technology": {
+    "java": 17,
+    "framework": "Spring Boot",
+    "architecture": "Microservices"
+  },
+  "domain": {
+    "bounded-context": "Transaction Processing",
+    "main-responsibilities": "Deposits, withdrawals, transfers, balance lookup, transaction history, and account validation"
+  },
+  "messaging": {
+    "kafka-topic": "transaction-events"
+  },
+  "build": {
+    "artifact": "transaction-service",
+    "name": "transaction-service",
+    "version": "0.0.1-SNAPSHOT",
+    "group": "com.backendev"
+  }
+}
+```
+
+---
 
 ## Tech Stack
 
-**Core**
-- Java 17, Spring Boot 3.5, Spring Cloud 2025.0.0
-  **Security & Auth**
-- Spring Security 6.5.5, JWT (JJWT 0.13.0)
-  **Messaging**
-- Apache Kafka (Confluent 7.5.0), Spring Kafka
-- Retry with exponential backoff, Dead Letter Topics (DLT), idempotent consumers
-  **Data**
-- Spring Data JPA, Hibernate 6.6.22, PostgreSQL 15
-  **Service Discovery**
-- Netflix Eureka (Spring Cloud)
-  **Build & DevOps**
-- Maven, Docker, Docker Buildx (multi-arch), GitHub Actions
-  **Documentation**
-- OpenAPI 3.0, Springdoc, Swagger UI
-  **Utilities**
-- Lombok, MapStruct, JaCoCo (code coverage), SLF4J
+### Backend
 
-## Getting Started
+- Java 17
+- Spring Boot
+- Spring Security
+- Spring Cloud Gateway
+- Spring Cloud Netflix Eureka
+- Spring Data JPA
+- Hibernate
+- Maven
+
+### Authentication
+
+- JWT access tokens
+- Refresh tokens
+- Role-based access control
+
+### Data
+
+- PostgreSQL
+- Database-per-service pattern
+
+### Messaging
+
+- Apache Kafka
+- Zookeeper
+- Spring Kafka
+
+### Infrastructure
+
+- Docker
+- Docker Compose
+- Eureka Service Discovery
+- API Gateway
+
+### Observability
+
+- Spring Boot Actuator
+- Health endpoints
+- Info metadata
+- Correlation ID logging
+- Request duration logging
+- Structured error responses
+
+---
+
+## Running the Project
 
 ### Prerequisites
 
 - Java 17+
-- Maven 3.8+
-- Docker & Docker Compose
-- A running PostgreSQL instance (or use Docker Compose)
-- A running Kafka instance (or use Docker Compose)
+- Docker Desktop
+- Docker Compose
+- Git
+
 ### Clone the repository
 
 ```bash
-git clone https://github.com/bhagyahosur18/banking-app.git
-cd banking-app
+git clone https://github.com/PetrosTam/petrosbank-microservices.git
+cd petrosbank-microservices
 ```
 
-## Running with Docker Compose
+### Create `.env`
 
-The easiest way to spin up the full stack locally.
-
-**1. Create a `.env` file** in the project root:
+Create a `.env` file in the project root:
 
 ```env
-JWT_SECRET=your-super-secret-jwt-key
+JWT_SECRET=your-256-bit-secret
 DB_USER=postgres
 DB_PASS=postgres
-MAIL_USERNAME=your-email@gmail.com
-MAIL_PASSWORD=your-app-password
+MAIL_USERNAME=dummy@gmail.com
+MAIL_PASSWORD=dummy
 ```
 
-**2. Start everything:**
+For local development, dummy mail credentials are acceptable because the notification service disables mail health checks.
+
+### Start all services
 
 ```bash
-docker-compose up --build
+docker compose up -d --build
 ```
 
-This starts: Zookeeper, Kafka, Eureka Server, all four microservices, and four PostgreSQL databases — all on a shared `microservices-network`.
-
-**3. Verify services are running:**
-
-| Service | URL |
-|---|---|
-| Eureka Dashboard | http://localhost:8761 |
-| User Service | http://localhost:8081 |
-| Account Service | http://localhost:8082 |
-| Transaction Service | http://localhost:8083 |
-| Notification Service | http://localhost:8084 |
-
-## Running Services Locally
-
-If you prefer to run services individually outside Docker:
+### Check running containers
 
 ```bash
-# Start PostgreSQL (Docker)
-docker run -d --name postgres-db \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=postgres \
-  -p 5432:5432 postgres:15
- 
-# Create the required databases
-docker exec -it postgres-db psql -U postgres -c "CREATE DATABASE usersdb;"
-docker exec -it postgres-db psql -U postgres -c "CREATE DATABASE accountdb;"
-docker exec -it postgres-db psql -U postgres -c "CREATE DATABASE transactiondb;"
-docker exec -it postgres-db psql -U postgres -c "CREATE DATABASE notificationdb;"
- 
-# Build all services
-mvn clean install -DskipTests
- 
-# Run individual services
-cd user-service && mvn spring-boot:run
-cd account-service && mvn spring-boot:run
-cd transaction-service && mvn spring-boot:run
-cd notification-service && mvn spring-boot:run
+docker compose ps
 ```
+
+### Stop all services
+
+```bash
+docker compose down
+```
+
+---
 
 ## Environment Variables
 
 | Variable | Description | Example |
 |---|---|---|
-| `JWT_SECRET` | Secret key for JWT signing | `my-secret-key-256bit` |
+| `JWT_SECRET` | Secret key used for JWT signing | `your-secret-key` |
 | `DB_USER` | PostgreSQL username | `postgres` |
 | `DB_PASS` | PostgreSQL password | `postgres` |
-| `SPRING_DATASOURCE_URL` | JDBC connection URL | `jdbc:postgresql://localhost:5432/usersdb` |
-| `SPRING_KAFKA_BOOTSTRAP_SERVERS` | Kafka broker address | `kafka:29092` |
+| `MAIL_USERNAME` | SMTP username for notification service | `dummy@gmail.com` |
+| `MAIL_PASSWORD` | SMTP password or app password | `dummy` |
+| `SPRING_KAFKA_BOOTSTRAP_SERVERS` | Kafka bootstrap server | `kafka:29092` |
 | `EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE` | Eureka registry URL | `http://eureka-server:8761/eureka/` |
-| `MAIL_USERNAME` | SMTP email address | `your-email@gmail.com` |
-| `MAIL_PASSWORD` | SMTP app password | `your-app-password` |
 
-## API Documentation
+---
 
-Swagger UI is available for each service when running:
+## API Gateway Routes
 
-| Service | Swagger URL |
-|---|---|
-| User Service | http://localhost:8081/swagger-ui/index.html |
-| Account Service | http://localhost:8082/swagger-ui/index.html |
-| Transaction Service | http://localhost:8083/swagger-ui/index.html |
+Base URL:
 
-## Authentication
-
-JWT tokens are issued by the **User Service** on successful login.
-
-Include the token in all protected requests:
-
-```
-Authorization: Bearer <your-jwt-token>
+```text
+http://localhost:8080
 ```
 
-- Tokens are validated by each service independently via Spring Security
-- Role-based access control (RBAC) restricts admin vs user operations
-- All CVE vulnerabilities are patched and regularly reviewed
-
-## Kafka & Event Flow
-
-Services publish events to Kafka topics on significant actions (user created, account updated, transaction processed). The Notification Service consumes these events and sends email notifications.
-
-**Topics:**
-- `user-events` — user registration, profile changes
-- `account-events` — account creation, status changes
-- `transaction-events` — deposits, withdrawals, transfers
-  **Reliability features:**
-- **Retry with exponential backoff** — failed messages are retried up to 3 times (1s → 2s → 4s)
-- **Dead Letter Topic (DLT)** — messages that exhaust retries are routed to `<topic>.DLT` for inspection
-- **Idempotent consumers** — duplicate events are detected via `eventId` and safely ignored
-
-## CI/CD Pipeline
-
-Every push to `main` or `develop` triggers the GitHub Actions pipeline.
-
-### Stage 1 — Build & Test (`build-and-test`)
-
-Runs on every push and pull request:
-
-1. Check out code
-2. Set up Java 17 with Maven cache
-3. Build all Spring Boot services
-4. Run unit tests
-5. Run integration tests with a PostgreSQL service container
-6. Upload test results as artifacts
-
-
-### Stage 2 — Docker Build & Push (`build-docker-images`)
-
-Runs only after tests pass, and only on `main`:
-
-1. Set up Docker Build for multi-architecture builds
-2. Authenticate with Docker Hub
-3. Build and push images for all services:
-  - `user-service`
-  - `account-service`
-  - `transaction-service`
-  - `notification-service`
-  - `eureka-server`
-4. Tags: `latest` and git commit SHA
-5. Architectures: `linux/amd64` and `linux/arm64`
-
-## GitHub Secrets Required
-
-Configure these in **Settings → Secrets and variables → Actions**:
-
-| Secret | Description |
+| Route | Target Service |
 |---|---|
-| `DOCKER_USERNAME` | Docker Hub username |
-| `DOCKER_PASSWORD` | Docker Hub password or access token |
-| `JWT_SECRET` | JWT signing secret used |
+| `/api/v1/users/**` | User Service |
+| `/api/v1/accounts/**` | Account Service |
+| `/api/v1/transactions/**` | Transaction Service |
+
+Example public endpoint:
+
+```bash
+curl http://localhost:8080/api/v1/users/accessAll
+```
+
+---
+
+## Authentication Flow
+
+### 1. Register user
+
+```http
+POST /api/v1/users/register
+```
+
+Example body:
+
+```json
+{
+  "firstName": "Petros",
+  "lastName": "Test",
+  "email": "petros@test.com",
+  "password": "Password123!",
+  "phone": "99999999",
+  "roles": ["ROLE_USER"]
+}
+```
+
+### 2. Login
+
+```http
+POST /api/v1/users/login
+```
+
+Example body:
+
+```json
+{
+  "email": "petros@test.com",
+  "password": "Password123!"
+}
+```
+
+Example response:
+
+```json
+{
+  "accessToken": "...",
+  "refreshToken": "...",
+  "email": "petros@test.com",
+  "roles": ["ROLE_USER"],
+  "expiration": "..."
+}
+```
+
+### 3. Use access token
+
+```http
+Authorization: Bearer <access-token>
+```
+
+### 4. Refresh access token
+
+```http
+POST /api/v1/users/refresh-token
+```
+
+Example body:
+
+```json
+{
+  "refreshToken": "<refresh-token>"
+}
+```
+
+### 5. Logout
+
+```http
+POST /api/v1/users/logout
+```
+
+Example body:
+
+```json
+{
+  "refreshToken": "<refresh-token>"
+}
+```
+
+---
+
+## Observability
+
+### Correlation ID
+
+Send a custom correlation ID:
+
+```powershell
+$customCorrelationId = "petros-test-correlation-id"
+
+Invoke-RestMethod `
+    -Uri "http://localhost:8080/api/v1/users/accessAll" `
+    -Method Get `
+    -Headers @{ "X-Correlation-ID" = $customCorrelationId }
+```
+
+Check logs:
+
+```bash
+docker logs api-gateway --tail 100
+docker logs user-service --tail 100
+docker logs account-service --tail 100
+docker logs transaction-service --tail 100
+```
+
+### Clean production-style logs
+
+The services are configured to reduce unnecessary Spring DEBUG logs and focus on application-level request tracing.
+
+---
+
+## Actuator Endpoints
+
+### API Gateway
+
+```text
+http://localhost:8080/actuator/health
+http://localhost:8080/actuator/info
+```
+
+### User Service
+
+```text
+http://localhost:8081/actuator/health
+http://localhost:8081/actuator/info
+```
+
+### Account Service
+
+```text
+http://localhost:8082/actuator/health
+http://localhost:8082/actuator/info
+```
+
+### Transaction Service
+
+```text
+http://localhost:8083/actuator/health
+http://localhost:8083/actuator/info
+```
+
+### Notification Service
+
+```text
+http://localhost:8084/actuator/health
+http://localhost:8084/actuator/info
+```
+
+PowerShell pretty JSON:
+
+```powershell
+Invoke-RestMethod -Uri "http://localhost:8084/actuator/info" -Method Get | ConvertTo-Json -Depth 10
+```
+
+---
+
+## Example API Flow
+
+A typical banking flow:
+
+```text
+1. Register user
+2. Login and receive access token + refresh token
+3. Create bank account
+4. Deposit money
+5. Withdraw money
+6. Create second account
+7. Transfer money between accounts
+8. Fetch transaction history
+9. Use correlation ID to trace logs across services
+```
+
+---
+
+## Project Improvements Implemented
+
+This project was extended and improved with the following backend engineering upgrades:
+
+- Added API Gateway with Eureka-based routing
+- Added refresh token authentication flow
+- Added logout by refresh token revocation
+- Fixed transaction history to include both incoming and outgoing transactions
+- Improved account limit error handling with proper `409 CONFLICT`
+- Added correlation ID propagation through API Gateway and services
+- Added correlation ID to structured error responses
+- Added timestamp, request path, and correlation ID to error responses
+- Added request completion logging with HTTP status and duration
+- Added clean production-style logging levels
+- Added custom log patterns with service name and correlation ID
+- Added Actuator health/info metadata for all services
+- Added notification service actuator support
+- Disabled mail health check for local development dummy SMTP credentials
+- Added build metadata to notification service
+
+---
 
 ## Future Improvements
 
-- API Gateway (Spring Cloud Gateway) as a single entry point
-- Centralized logging with ELK Stack (Elasticsearch, Logback, Kibana)
-- Distributed tracing with Zipkin or OpenTelemetry
-- Metrics and monitoring with Prometheus + Grafana
-- Password reset and email verification flow
-- Refresh token support
+Possible future improvements:
+
+- Centralized logging with ELK or OpenSearch
+- Distributed tracing with OpenTelemetry
+- Metrics dashboards with Prometheus and Grafana
+- More complete API documentation collection
+- Integration tests for gateway-based flows
+- Password reset flow
+- Email verification flow
+- CI/CD pipeline hardening
+- Kubernetes deployment manifests
+- Helm chart support
+- Centralized configuration with Spring Cloud Config
+
+---
 
 ## License
 
