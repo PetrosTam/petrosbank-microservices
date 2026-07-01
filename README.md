@@ -20,6 +20,7 @@ This project is intended as a backend engineering portfolio project focused on e
 - [Observability](#observability)
 - [Actuator Endpoints](#actuator-endpoints)
 - [Local Health Check Script](#local-health-check-script)
+- [API Smoke Test Script](#api-smoke-test-script)
 - [Example API Flow](#example-api-flow)
 - [Project Improvements Implemented](#project-improvements-implemented)
 - [Future Improvements](#future-improvements)
@@ -539,6 +540,56 @@ All services are healthy.
 ```
 
 This is useful after running Docker Compose to confirm that the local microservices environment is ready.
+
+---
+
+## API Smoke Test Script
+
+A PowerShell API smoke test script is included to verify that the main API flow works through the API Gateway.
+
+Run from the project root:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\api-smoke-test.ps1
+```
+
+The script tests the following flow:
+
+| Step | What It Tests |
+|---|---|
+| 1 | Public API Gateway endpoint |
+| 2 | User registration |
+| 3 | Login through the User Service |
+| 4 | Access token and refresh token generation |
+| 5 | Refresh token flow |
+| 6 | Account creation through the API Gateway |
+
+Example output:
+
+```text
+Banking App - API Smoke Test
+============================
+
+[1/5] Testing public gateway endpoint...
+[OK] Public endpoint response: This endpoint can be accessed by all the users!
+
+[2/5] Registering test user...
+[OK] Registered user: smoke-test-example@test.com
+
+[3/5] Logging in...
+[OK] Login successful. Access token and refresh token received.
+
+[4/5] Refreshing access token...
+[OK] Refresh token flow works.
+
+[5/5] Creating account through API Gateway...
+[OK] Account created successfully.
+Account Number: 1508912413
+
+API smoke test completed successfully.
+```
+
+This script is useful after starting the local Docker Compose environment to confirm that authentication and account creation work end-to-end through the API Gateway.
 
 ---
 
