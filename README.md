@@ -292,6 +292,22 @@ docker compose down
 
 ## Environment Variables
 
+An example environment file is provided as `.env.example`.
+
+For local setup, copy it to `.env` and update the values if needed:
+
+```bash
+cp .env.example .env
+```
+
+On Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+The real `.env` file should not be committed to Git because it may contain secrets such as JWT keys, database passwords, or mail credentials.
+
 | Variable | Description | Example |
 |---|---|---|
 | `JWT_SECRET` | Secret key used for JWT signing | `your-secret-key` |
