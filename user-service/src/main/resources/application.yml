@@ -61,7 +61,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,metrics,info,env
+        include: health,metrics,info
   endpoint:
     health:
       show-details: when-authorized
