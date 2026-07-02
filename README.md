@@ -21,6 +21,7 @@ This project is intended as a backend engineering portfolio project focused on e
 - [Actuator Endpoints](#actuator-endpoints)
 - [Local Health Check Script](#local-health-check-script)
 - [API Smoke Test Script](#api-smoke-test-script)
+- [Correlation ID Log Search](#correlation-id-log-search)
 - [Example API Flow](#example-api-flow)
 - [Project Improvements Implemented](#project-improvements-implemented)
 - [Future Improvements](#future-improvements)
@@ -590,6 +591,70 @@ API smoke test completed successfully.
 ```
 
 This script is useful after starting the local Docker Compose environment to confirm that authentication and account creation work end-to-end through the API Gateway.
+
+---
+
+## Correlation ID Log Search
+
+A PowerShell utility is included for tracing a request across the microservices by using its correlation ID.
+
+Run from the project root:
+
+```powershell
+powershell -ExecutionPolicy Bypass `
+    -File .\scripts\find-correlation-logs.ps1 `
+    -CorrelationId "your-correlation-id"
+```
+
+By default, the script displays only the most relevant application logs, including:
+
+- Request start and completion
+- HTTP method, path, status, and duration
+- User registration and login activity
+- Refresh token operations
+- Account creation
+- Deposits, withdrawals, and transfers
+- Warnings, errors, exceptions, and access-denied events
+
+Example output:
+
+```text
+[api-gateway]
+  Gateway request received. method=POST, path=/api/v1/users/register
+  Gateway request completed. method=POST, path=/api/v1/users/register, status=201, durationMs=130
+
+[user-service]
+  User service request received. method=POST, path=/api/v1/users/register
+  Registration request received for email=smoke-test-example@test.com
+  User service request completed. method=POST, path=/api/v1/users/register, status=201, durationMs=124
+
+[account-service]
+  Account service request received. method=POST, path=/api/v1/accounts
+  Account created for user with user Id 6
+  Account service request completed. method=POST, path=/api/v1/accounts, status=201, durationMs=60
+```
+
+To display every matching log line, including framework, Kafka, and diagnostic logs, use the `-ShowAll` option:
+
+```powershell
+powershell -ExecutionPolicy Bypass `
+    -File .\scripts\find-correlation-logs.ps1 `
+    -CorrelationId "your-correlation-id" `
+    -ShowAll
+```
+
+The optional `-Tail` parameter controls how many recent lines are searched in each container:
+
+```powershell
+powershell -ExecutionPolicy Bypass `
+    -File .\scripts\find-correlation-logs.ps1 `
+    -CorrelationId "your-correlation-id" `
+    -Tail 1000
+```
+
+The script searches the API Gateway, User Service, Account Service, Transaction Service, and Notification Service containers.
+
+Docker container logs remain available for deeper debugging. The script only provides a filtered view and does not modify or delete the original logs.
 
 ---
 
