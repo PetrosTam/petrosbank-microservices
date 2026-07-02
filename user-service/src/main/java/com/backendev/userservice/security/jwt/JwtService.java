@@ -12,79 +12,96 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
-import java.security.Key;
 import java.util.Base64;
 import java.util.Date;
 import java.util.Map;
+import java.util.UUID;
 
 @Component
 @Slf4j
 public class JwtService {
 
     private final AuditService auditService;
-    private static final long TOKEN_EXPIRATION_TIME = 900000;
 
     @Value("${JWT_SECRET}")
     private String secretKey;
+
+    @Value("${security.jwt.access-token-expiration-ms:900000}")
+    private long accessTokenExpirationMs;
 
     public JwtService(AuditService auditService) {
         this.auditService = auditService;
     }
 
-    public String generateToken(String username, Map<String, Object> claims) {
+    public String generateToken(
+            String username,
+            Map<String, Object> claims
+    ) {
+        Date issuedAt = new Date();
+        Date expiration = new Date(
+                issuedAt.getTime() + accessTokenExpirationMs
+        );
+
         return Jwts.builder()
-                .subject(username)
                 .claims(claims)
-                .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + TOKEN_EXPIRATION_TIME))
-                .signWith(getSignedKey())
+                .subject(username)
+                .id(UUID.randomUUID().toString())
+                .issuedAt(issuedAt)
+                .expiration(expiration)
+                .signWith(getSigningKey())
                 .compact();
     }
 
-    private Key getSignedKey() {
-        byte[] keyBytes = Base64.getDecoder().decode(secretKey);
-        return Keys.hmacShaKeyFor(keyBytes);
+    public String extractUsername(String token) {
+        return getClaims(token).getSubject();
+    }
+
+    public String extractTokenId(String token) {
+        return getClaims(token).getId();
+    }
+
+    public Date extractExpiration(String token) {
+        return getClaims(token).getExpiration();
+    }
+
+    public boolean validateToken(String token) {
+        try {
+            getClaims(token);
+            return true;
+        } catch (Exception exception) {
+            return false;
+        }
     }
 
     private Claims getClaims(String token) {
         try {
             return Jwts.parser()
-                    .verifyWith((SecretKey) getSignedKey())
+                    .verifyWith(getSigningKey())
                     .build()
                     .parseSignedClaims(token)
                     .getPayload();
-        } catch (ExpiredJwtException e) {
-            String email = e.getClaims() != null ? e.getClaims().getSubject() : "unknown";
-            auditService.auditLog(AuditEventType.TOKEN_EXPIRED, email, "Token expired");
-            log.error("JWT expired.");
-            throw new TokenExpiredException("JWT expired. Please log in again.", e);
+        } catch (ExpiredJwtException exception) {
+            String email = exception.getClaims() != null
+                    ? exception.getClaims().getSubject()
+                    : "unknown";
+
+            auditService.auditLog(
+                    AuditEventType.TOKEN_EXPIRED,
+                    email,
+                    "Token expired"
+            );
+
+            log.warn("JWT expired for subject={}", email);
+
+            throw new TokenExpiredException(
+                    "JWT expired. Please log in again.",
+                    exception
+            );
         }
     }
 
-    public String extractUsername(String token){
-        Claims claims = getClaims(token);
-        if (claims == null) {
-            return null; // Token is expired or invalid
-        }
-        return claims.getSubject();
-    }
-
-    // Validate JWT Token
-        public boolean validateToken(String token) {
-            try {
-                return !isTokenExpired(token);
-            } catch (Exception e) {
-                return false;
-            }
-        }
-
-    private boolean isTokenExpired(String token) {
-        Claims claims = getClaims(token);
-        return claims.getExpiration().before(new Date());
-    }
-
-    public Date extractExpiration(String token) {
-        Claims claims = getClaims(token);
-        return claims.getExpiration();
+    private SecretKey getSigningKey() {
+        byte[] keyBytes = Base64.getDecoder().decode(secretKey);
+        return Keys.hmacShaKeyFor(keyBytes);
     }
 }
