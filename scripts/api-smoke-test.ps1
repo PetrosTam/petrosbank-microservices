@@ -17,7 +17,7 @@ $headers = @{
 }
 
 try {
-    Write-Host "[1/5] Testing public gateway endpoint..." -ForegroundColor Yellow
+    Write-Host "[1/7] Testing public gateway endpoint..." -ForegroundColor Yellow
 
     $publicResponse = Invoke-RestMethod `
         -Uri "$BaseUrl/api/v1/users/accessAll" `
@@ -27,7 +27,7 @@ try {
     Write-Host "[OK] Public endpoint response: $publicResponse" -ForegroundColor Green
 
     Write-Host ""
-    Write-Host "[2/5] Registering test user..." -ForegroundColor Yellow
+    Write-Host "[2/7] Registering test user..." -ForegroundColor Yellow
 
     $uniqueId = [guid]::NewGuid().ToString("N").Substring(0, 8)
     $email = "smoke-test-$uniqueId@test.com"
@@ -52,7 +52,7 @@ try {
     Write-Host "[OK] Registered user: $email" -ForegroundColor Green
 
     Write-Host ""
-    Write-Host "[3/5] Logging in..." -ForegroundColor Yellow
+    Write-Host "[3/7] Logging in..." -ForegroundColor Yellow
 
     $loginBody = @{
         email = $email
@@ -80,7 +80,7 @@ try {
     Write-Host "[OK] Login successful. Access token and refresh token received." -ForegroundColor Green
 
     Write-Host ""
-    Write-Host "[4/5] Refreshing access token..." -ForegroundColor Yellow
+    Write-Host "[4/7] Refreshing access token..." -ForegroundColor Yellow
 
     $refreshBody = @{
         refreshToken = $refreshToken
@@ -100,7 +100,7 @@ try {
     Write-Host "[OK] Refresh token flow works." -ForegroundColor Green
 
     Write-Host ""
-    Write-Host "[5/5] Creating account through API Gateway..." -ForegroundColor Yellow
+    Write-Host "[5/7] Creating account through API Gateway..." -ForegroundColor Yellow
 
     $authHeaders = @{
         Authorization = "Bearer $accessToken"
@@ -124,6 +124,60 @@ try {
     if ($accountResponse.accountNumber) {
         Write-Host "Account Number: $($accountResponse.accountNumber)" -ForegroundColor Green
     }
+
+    Write-Host ""
+    Write-Host "[6/7] Logging out and revoking refresh token..." -ForegroundColor Yellow
+
+    $logoutBody = @{
+        refreshToken = $refreshToken
+    } | ConvertTo-Json
+
+    $logoutResponse = Invoke-WebRequest `
+        -UseBasicParsing `
+        -Uri "$BaseUrl/api/v1/users/logout" `
+        -Method Post `
+        -ContentType "application/json" `
+        -Headers $headers `
+        -Body $logoutBody
+
+    if ($logoutResponse.StatusCode -ne 204) {
+        throw "Logout did not return HTTP 204."
+    }
+
+    Write-Host "[OK] Logout successful. Refresh token revoked." -ForegroundColor Green
+
+    Write-Host ""
+    Write-Host "[7/7] Verifying revoked refresh token is rejected..." -ForegroundColor Yellow
+
+    $revokedTokenRejected = $false
+
+    try {
+        Invoke-RestMethod `
+            -Uri "$BaseUrl/api/v1/users/refresh-token" `
+            -Method Post `
+            -ContentType "application/json" `
+            -Headers $headers `
+            -Body $refreshBody | Out-Null
+    }
+    catch {
+        if ($_.Exception.Response) {
+            $statusCode = [int]$_.Exception.Response.StatusCode
+
+            if ($statusCode -eq 401) {
+                $revokedTokenRejected = $true
+            } else {
+                throw "Expected HTTP 401 for revoked refresh token, but received HTTP $statusCode."
+            }
+        } else {
+            throw
+        }
+    }
+
+    if (-not $revokedTokenRejected) {
+        throw "Revoked refresh token was accepted unexpectedly."
+    }
+
+    Write-Host "[OK] Revoked refresh token correctly rejected with HTTP 401." -ForegroundColor Green
 
     Write-Host ""
     Write-Host "API smoke test completed successfully." -ForegroundColor Green
