@@ -74,6 +74,7 @@ services:
       - "8081:8081"
     environment:
       - JWT_SECRET=${JWT_SECRET}
+      - JWT_ACCESS_TOKEN_EXPIRATION_MS=${JWT_ACCESS_TOKEN_EXPIRATION_MS:-900000}
       - SPRING_PROFILES_ACTIVE=docker
       - SPRING_DATASOURCE_URL=jdbc:postgresql://user-db:5432/usersdb
       - SPRING_DATASOURCE_USERNAME=${DB_USER}
