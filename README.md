@@ -564,6 +564,8 @@ The script tests the following flow:
 | 4 | Access token and refresh token generation |
 | 5 | Refresh token flow |
 | 6 | Account creation through the API Gateway |
+| 6 | Logout and refresh token revocation |
+| 7 | Rejection of a revoked refresh token with HTTP 401 |
 
 Example output:
 
@@ -571,21 +573,27 @@ Example output:
 Banking App - API Smoke Test
 ============================
 
-[1/5] Testing public gateway endpoint...
+[1/7] Testing public gateway endpoint...
 [OK] Public endpoint response: This endpoint can be accessed by all the users!
 
-[2/5] Registering test user...
+[2/7] Registering test user...
 [OK] Registered user: smoke-test-example@test.com
 
-[3/5] Logging in...
+[3/7] Logging in...
 [OK] Login successful. Access token and refresh token received.
 
-[4/5] Refreshing access token...
+[4/7] Refreshing access token...
 [OK] Refresh token flow works.
 
-[5/5] Creating account through API Gateway...
+[5/7] Creating account through API Gateway...
 [OK] Account created successfully.
 Account Number: 1508912413
+
+[6/7] Logging out and revoking refresh token...
+[OK] Logout successful. Refresh token revoked.
+
+[7/7] Verifying revoked refresh token is rejected...
+[OK] Revoked refresh token correctly rejected with HTTP 401.
 
 API smoke test completed successfully.
 ```
