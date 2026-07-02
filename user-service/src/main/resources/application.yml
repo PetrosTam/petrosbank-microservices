@@ -28,6 +28,10 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
 
+security:
+  jwt:
+    access-token-expiration-ms: ${JWT_ACCESS_TOKEN_EXPIRATION_MS:900000}
+
 user:
   topic: user-events
 
