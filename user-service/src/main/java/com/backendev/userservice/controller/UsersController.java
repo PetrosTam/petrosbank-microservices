@@ -34,67 +34,127 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/users")
 public class UsersController {
 
+    private static final Logger log = LoggerFactory.getLogger(UsersController.class);
+
     private final UsersService usersService;
     private final LoginService loginService;
     private final AuditService auditService;
 
-    public UsersController(UsersService usersService, LoginService loginService, AuditService auditService) {
+    public UsersController(
+            UsersService usersService,
+            LoginService loginService,
+            AuditService auditService
+    ) {
         this.usersService = usersService;
         this.loginService = loginService;
         this.auditService = auditService;
     }
 
-    private static final Logger log = LoggerFactory.getLogger(UsersController.class);
-
     @PostMapping("/register")
-    public ResponseEntity<UserRegistrationResponse> register(@Valid @RequestBody UserRegistrationRequest userRegistrationRequest) {
-        log.info("Registration for new user request {}", userRegistrationRequest);
-        UserRegistrationResponse savedUser = usersService.registerUser(userRegistrationRequest);
-        auditService.auditLog(AuditEventType.REGISTRATION, savedUser.getEmail(), "User registered");
-        return ResponseEntity.status(HttpStatus.CREATED).body(savedUser);
+    public ResponseEntity<UserRegistrationResponse> register(
+            @Valid @RequestBody UserRegistrationRequest userRegistrationRequest
+    ) {
+        log.info(
+                "Registration request received for email={}",
+                userRegistrationRequest.getEmail()
+        );
+
+        UserRegistrationResponse savedUser =
+                usersService.registerUser(userRegistrationRequest);
+
+        auditService.auditLog(
+                AuditEventType.REGISTRATION,
+                savedUser.getEmail(),
+                "User registered"
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(savedUser);
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody AuthRequest authRequest) {
-        log.info("Login for request of user {}", authRequest.getEmail());
+    public ResponseEntity<AuthResponse> login(
+            @Valid @RequestBody AuthRequest authRequest
+    ) {
+        log.info(
+                "Login request received for email={}",
+                authRequest.getEmail()
+        );
 
         try {
             AuthResponse authResponse = loginService.login(authRequest);
-            log.debug("Login successful. JWT issued");
-            return new ResponseEntity<>(authResponse, HttpStatus.OK);
+
+            log.debug(
+                    "Login successful for email={}",
+                    authRequest.getEmail()
+            );
+
+            return ResponseEntity.ok(authResponse);
         } catch (BadCredentialsException exception) {
-            log.error("Login failed for user {}", authRequest.getEmail());
-            auditService.auditLog(AuditEventType.LOGIN_FAILURE, "", "Invalid credentials");
+            log.warn(
+                    "Login failed for email={}",
+                    authRequest.getEmail()
+            );
+
+            auditService.auditLog(
+                    AuditEventType.LOGIN_FAILURE,
+                    authRequest.getEmail(),
+                    "Invalid credentials"
+            );
+
             throw exception;
         }
     }
 
     @PostMapping("/refresh-token")
-    public ResponseEntity<AuthResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest refreshTokenRequest) {
+    public ResponseEntity<AuthResponse> refreshToken(
+            @Valid @RequestBody RefreshTokenRequest refreshTokenRequest
+    ) {
         log.info("Refresh token request received");
-        AuthResponse authResponse = loginService.refreshAccessToken(refreshTokenRequest.getRefreshToken());
-        return new ResponseEntity<>(authResponse, HttpStatus.OK);
+
+        AuthResponse authResponse =
+                loginService.refreshAccessToken(refreshTokenRequest.getRefreshToken());
+
+        return ResponseEntity.ok(authResponse);
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@Valid @RequestBody RefreshTokenRequest refreshTokenRequest) {
+    public ResponseEntity<Void> logout(
+            @Valid @RequestBody RefreshTokenRequest refreshTokenRequest
+    ) {
         log.info("Logout request received");
+
         loginService.logout(refreshTokenRequest.getRefreshToken());
+
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<UserDTO> getUserProfile(@PathVariable Long id, Authentication authentication) {
-        log.info("Get user profile request for the id {}", id);
-        AppUserDetails userDetails = (AppUserDetails) authentication.getPrincipal();
+    public ResponseEntity<UserDTO> getUserProfile(
+            @PathVariable Long id,
+            Authentication authentication
+    ) {
+        log.info("User profile request received for userId={}", id);
+
+        AppUserDetails userDetails =
+                (AppUserDetails) authentication.getPrincipal();
 
         if (!userDetails.getId().equals(id)) {
-            auditService.auditLog(AuditEventType.INVALID_TOKEN, userDetails.getEmail(), "Access denied for the user");
-            throw new AccessDeniedException("You can only access your own profile.");
+            auditService.auditLog(
+                    AuditEventType.INVALID_TOKEN,
+                    userDetails.getEmail(),
+                    "Access denied for the user"
+            );
+
+            throw new AccessDeniedException(
+                    "You can only access your own profile."
+            );
         }
 
         UserDTO userDTO = usersService.findUserByID(id);
-        return new ResponseEntity<>(userDTO, HttpStatus.OK);
+
+        return ResponseEntity.ok(userDTO);
     }
 
     @PutMapping("/{id}")
@@ -103,17 +163,32 @@ public class UsersController {
             @RequestBody @Valid UserProfileDTO updatedUser,
             Authentication authentication
     ) {
-        log.info("Update userDTO profile for the id {}", id);
-        AppUserDetails userDetails = (AppUserDetails) authentication.getPrincipal();
+        log.info("User profile update request received for userId={}", id);
+
+        AppUserDetails userDetails =
+                (AppUserDetails) authentication.getPrincipal();
 
         if (!userDetails.getId().equals(id)) {
-            auditService.auditLog(AuditEventType.INVALID_TOKEN, userDetails.getEmail(), "Access denied for the user");
-            throw new AccessDeniedException("You can only access your own profile.");
+            auditService.auditLog(
+                    AuditEventType.INVALID_TOKEN,
+                    userDetails.getEmail(),
+                    "Access denied for the user"
+            );
+
+            throw new AccessDeniedException(
+                    "You can only access your own profile."
+            );
         }
 
         UserDTO userDTO = usersService.updateUser(id, updatedUser);
-        auditService.auditLog(AuditEventType.PROFILE_UPDATED, userDetails.getEmail(), "User profile updated");
-        return new ResponseEntity<>(userDTO, HttpStatus.OK);
+
+        auditService.auditLog(
+                AuditEventType.PROFILE_UPDATED,
+                userDetails.getEmail(),
+                "User profile updated"
+        );
+
+        return ResponseEntity.ok(userDTO);
     }
 
     @GetMapping("/accessAll")
