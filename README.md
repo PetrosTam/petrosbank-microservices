@@ -569,7 +569,7 @@ Maximum retry delay: 15s
 
 A live countdown spinner is displayed while the script waits for the next retry round.
 
-Example cold-start recovery output:
+Example cold-start recovery output (abbreviated):
 
 ```text
 PetrosBank Microservices - Local Health Check
@@ -583,6 +583,7 @@ Attempt 5/6
 [UP]     API Gateway
 [FAILED] User Service
 [FAILED] Account Service
+[FAILED] Transaction Service
 [UP]     Notification Service
 [UP]     Eureka Server
 
@@ -594,6 +595,11 @@ Example successful output:
 ```text
 PetrosBank Microservices - Local Health Check
 =============================================
+
+Retry policy: 6 total attempts per service (1 initial attempt + 5 retries; delays: 5s, 10s, 15s, 15s, 15s).
+
+Attempt 1/6
+-----------
 
 [UP]     API Gateway
 [UP]     User Service
@@ -738,7 +744,7 @@ Correlation ID: petros-api-smoke-test-4327316d-7b71-463c-8cbd-3ae97c4585bf
 
 The correlation ID can be used with the log-search script to locate the related request flow across the API Gateway and downstream services.
 
-### Example Successful Output
+### Example Successful Output (Abbreviated)
 
 ```text
 PetrosBank Microservices - API Smoke Test
