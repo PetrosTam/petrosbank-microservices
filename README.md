@@ -633,32 +633,137 @@ This script is useful after starting Docker Desktop or Docker Compose to confirm
 
 ## API Smoke Test Script
 
-A PowerShell API smoke test script is included to verify that the main API flow works through the API Gateway.
+A PowerShell API smoke-test script is included to verify that the main application flow works end-to-end through the API Gateway.
 
-Run from the project root:
+Run the script from the project root:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\api-smoke-test.ps1
+powershell -ExecutionPolicy Bypass `
+    -File .\scripts\api-smoke-test.ps1
 ```
 
-The script tests the following flow:
+The script generates a unique test user and uses one correlation ID throughout the complete execution.
+
+### Component Readiness Check
+
+Before running the API flow, the script verifies that the following required components respond with an `UP` health status:
+
+| Component | Health Endpoint |
+|---|---|
+| API Gateway | `http://localhost:8080/actuator/health` |
+| User Service | `http://localhost:8081/actuator/health` |
+| Account Service | `http://localhost:8082/actuator/health` |
+| Eureka Server | `http://localhost:8761/actuator/health` |
+
+The component checks use round-based retries. Components that become ready are removed from later retry attempts.
+
+Default component-readiness policy:
+
+```text
+6 total attempts
+1 initial attempt and 5 retries
+Retry delays: 5s, 10s, 15s, 15s, 15s
+Maximum retry delay: 15s
+```
+
+### Gateway Route Readiness Check
+
+A healthy API Gateway does not necessarily mean that Eureka service discovery and downstream routing are already ready.
+
+After the component checks pass, the script verifies that the API Gateway can successfully route a real request to the User Service:
+
+```http
+GET /api/v1/users/accessAll
+```
+
+Default Gateway route-readiness policy:
+
+```text
+5 total attempts
+1 initial attempt and 4 retries
+Retry delays: 3s, 6s, 10s, 10s
+Maximum retry delay: 10s
+```
+
+This prevents temporary Eureka registration or API Gateway discovery delays from causing an immediate HTTP `503 Service Unavailable` failure.
+
+### End-to-End API Flow
+
+After component and route readiness are confirmed, the script tests the following flow:
 
 | Step | What It Tests |
 |---|---|
-| 1 | Public API Gateway endpoint |
+| 1 | Public endpoint through the API Gateway |
 | 2 | User registration |
-| 3 | Login through the User Service |
-| 4 | Access token and refresh token generation |
-| 5 | Refresh token flow |
-| 6 | Account creation through the API Gateway |
-| 6 | Logout and refresh token revocation |
-| 7 | Rejection of a revoked refresh token with HTTP 401 |
+| 3 | Login and access-token and refresh-token issuance |
+| 4 | Access-token refresh |
+| 5 | Account creation through the API Gateway |
+| 6 | Logout and refresh-token revocation |
+| 7 | Rejection of the revoked refresh token with HTTP 401 |
 
-Example output:
+### Transient Request Handling
+
+Temporary failures are retried only for requests that are safe to repeat.
+
+The script recognises the following failures as transient:
 
 ```text
-Banking App - API Smoke Test
-============================
+HTTP 502 Bad Gateway
+HTTP 503 Service Unavailable
+HTTP 504 Gateway Timeout
+Connection or transport failures
+```
+
+Default transient-request policy:
+
+```text
+3 total attempts
+1 initial attempt and 2 retries
+Retry delays: 2s, 4s
+```
+
+Requests that create or modify data, such as user registration and account creation, are not automatically retried. This avoids duplicate operations if a request succeeds but its response is lost.
+
+### Correlation ID
+
+A unique correlation ID is generated for every smoke-test execution and sent through all requests.
+
+Example:
+
+```text
+Correlation ID: petros-api-smoke-test-4327316d-7b71-463c-8cbd-3ae97c4585bf
+```
+
+The correlation ID can be used with the log-search script to locate the related request flow across the API Gateway and downstream services.
+
+### Example Output
+
+```text
+PetrosBank Microservices - API Smoke Test
+=========================================
+
+Component readiness check
+-------------------------
+
+Attempt 1/6
+-----------
+
+[UP]     API Gateway
+[UP]     User Service
+[UP]     Account Service
+[UP]     Eureka Server
+
+All required components are ready.
+
+Gateway route readiness check
+-----------------------------
+
+Attempt 1/5
+-----------
+
+[UP]     API Gateway -> User Service route
+
+Gateway routing is ready.
 
 [1/7] Testing public gateway endpoint...
 [OK] Public endpoint response: This endpoint can be accessed by all the users!
@@ -685,7 +790,30 @@ Account Number: 1508912413
 API smoke test completed successfully.
 ```
 
-This script is useful after starting the local Docker Compose environment to confirm that authentication and account creation work end-to-end through the API Gateway.
+### Exit Codes
+
+```text
+0 = Complete smoke test passed
+1 = Readiness check or API test failed
+```
+
+The exit codes allow the script to be used in local automation and future CI/CD pipelines.
+
+### Custom Configuration
+
+The default URL, retry policies, and request timeout can be overridden through command-line parameters:
+
+```powershell
+powershell -ExecutionPolicy Bypass `
+    -File .\scripts\api-smoke-test.ps1 `
+    -BaseUrl "http://localhost:8080" `
+    -ReadinessMaxAttempts 6 `
+    -RouteReadinessMaxAttempts 5 `
+    -TransientRequestMaxAttempts 3 `
+    -RequestTimeoutSeconds 10
+```
+
+This script is useful after starting the Docker Compose environment to confirm that component readiness, Eureka service discovery, API Gateway routing, authentication, token refresh, account creation, logout, and refresh-token revocation work end-to-end.
 
 ---
 
