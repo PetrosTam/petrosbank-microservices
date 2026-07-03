@@ -530,15 +530,16 @@ Invoke-RestMethod -Uri "http://localhost:8084/actuator/info" -Method Get | Conve
 
 ## Local Health Check Script
 
-A PowerShell health check script is included to quickly verify that all core services are running locally.
+A PowerShell health-check script is included to verify that all core services are running locally and ready to receive requests.
 
-Run from the project root:
+Run the script from the project root:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\health-check.ps1
+powershell -ExecutionPolicy Bypass `
+    -File .\scripts\health-check.ps1
 ```
 
-The script checks the following services:
+The script checks the following Spring Boot Actuator health endpoints:
 
 | Service | Health Endpoint |
 |---|---|
@@ -549,23 +550,84 @@ The script checks the following services:
 | Notification Service | `http://localhost:8084/actuator/health` |
 | Eureka Server | `http://localhost:8761/actuator/health` |
 
-Example output:
+### Round-Based Retry Handling
+
+The script uses round-based retries.
+
+During each attempt, it checks all services that are still unavailable. Services that become healthy are removed from subsequent retry rounds.
+
+This is more efficient than exhausting all retries for one service before checking the next service, and it gives the complete microservices environment enough time to recover during a Docker cold start.
+
+Default retry policy:
 
 ```text
-Banking App - Local Health Check
-================================
+6 total attempts per service
+1 initial attempt and 5 retries
+Retry delays: 5s, 10s, 15s, 15s, 15s
+Maximum retry delay: 15s
+```
 
-[UP]   API Gateway
-[UP]   User Service
-[UP]   Account Service
-[UP]   Transaction Service
-[UP]   Notification Service
-[UP]   Eureka Server
+A live countdown spinner is displayed while the script waits for the next retry round.
+
+Example cold-start recovery output:
+
+```text
+PetrosBank Microservices - Local Health Check
+=============================================
+
+Retry policy: 6 total attempts per service (1 initial attempt + 5 retries; delays: 5s, 10s, 15s, 15s, 15s).
+
+Attempt 5/6
+-----------
+
+[UP]     API Gateway
+[FAILED] User Service
+[FAILED] Account Service
+[UP]     Notification Service
+[UP]     Eureka Server
+
+3/6 services recovered; retrying 3 unhealthy services...
+```
+
+Example successful output:
+
+```text
+PetrosBank Microservices - Local Health Check
+=============================================
+
+[UP]     API Gateway
+[UP]     User Service
+[UP]     Account Service
+[UP]     Transaction Service
+[UP]     Notification Service
+[UP]     Eureka Server
 
 All services are healthy.
 ```
 
-This is useful after running Docker Compose to confirm that the local microservices environment is ready.
+### Exit Codes
+
+```text
+0 = All services are healthy
+1 = One or more services remain unhealthy
+```
+
+The exit codes allow the script to be used in local automation and future CI/CD pipelines.
+
+### Custom Configuration
+
+The default retry and timeout values can be overridden through command-line parameters:
+
+```powershell
+powershell -ExecutionPolicy Bypass `
+    -File .\scripts\health-check.ps1 `
+    -MaxAttempts 4 `
+    -InitialDelaySeconds 3 `
+    -MaxDelaySeconds 10 `
+    -RequestTimeoutSeconds 5
+```
+
+This script is useful after starting Docker Desktop or Docker Compose to confirm that the complete local microservices environment is available.
 
 ---
 
