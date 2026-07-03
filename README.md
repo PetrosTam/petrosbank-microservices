@@ -829,27 +829,48 @@ This script is useful after starting the Docker Compose environment to confirm t
 
 A PowerShell utility is included for tracing a request across the microservices by using its correlation ID.
 
-Run from the project root:
+Run the script from the project root:
 
 ```powershell
 powershell -ExecutionPolicy Bypass `
     -File .\scripts\find-correlation-logs.ps1 `
-    -CorrelationId "your-correlation-id"
+    -CorrelationId "your-complete-correlation-id"
 ```
+
+The complete correlation ID must be supplied exactly as it appears in the API response or smoke-test output. Ellipses such as `...` are treated as literal characters and are not wildcards.
+
+Example:
+
+```text
+petros-api-smoke-test-ab510a4a-4d38-4a69-b4bc-493e34d98517
+```
+
+### Important Logs Mode
 
 By default, the script displays only the most relevant application logs, including:
 
 - Request start and completion
 - HTTP method, path, status, and duration
 - User registration and login activity
-- Refresh token operations
+- Refresh-token and logout operations
 - Account creation
 - Deposits, withdrawals, and transfers
-- Warnings, errors, exceptions, and access-denied events
+- Insufficient-funds events
+- Service-discovery failures
+- Token revocation and rejection
+- Access-denied and authorization failures
+- Warnings, errors, exceptions, and HTTP 5xx responses
 
 Example output:
 
 ```text
+PetrosBank Microservices - Correlation ID Log Search
+====================================================
+
+Correlation ID: petros-api-smoke-test-example
+Log tail size: 2000
+Mode: Important logs only
+
 [api-gateway]
   Gateway request received. method=POST, path=/api/v1/users/register
   Gateway request completed. method=POST, path=/api/v1/users/register, status=201, durationMs=130
@@ -863,27 +884,80 @@ Example output:
   Account service request received. method=POST, path=/api/v1/accounts
   Account created for user with user Id 6
   Account service request completed. method=POST, path=/api/v1/accounts, status=201, durationMs=60
+
+[transaction-service]
+  No relevant logs found.
+
+[notification-service]
+  No relevant logs found.
+
+Search completed. Relevant logs found.
 ```
+
+A service may display `No relevant logs found` when the traced request flow did not call that service.
+
+### Show All Matching Logs
 
 To display every matching log line, including framework, Kafka, and diagnostic logs, use the `-ShowAll` option:
 
 ```powershell
 powershell -ExecutionPolicy Bypass `
     -File .\scripts\find-correlation-logs.ps1 `
-    -CorrelationId "your-correlation-id" `
+    -CorrelationId "your-complete-correlation-id" `
     -ShowAll
 ```
 
-The optional `-Tail` parameter controls how many recent lines are searched in each container:
+### Log Tail Size
+
+The optional `-Tail` parameter controls how many recent lines are searched in each container.
+
+The default value is `500`:
 
 ```powershell
 powershell -ExecutionPolicy Bypass `
     -File .\scripts\find-correlation-logs.ps1 `
-    -CorrelationId "your-correlation-id" `
-    -Tail 1000
+    -CorrelationId "your-complete-correlation-id" `
+    -Tail 2000
 ```
 
-The script searches the API Gateway, User Service, Account Service, Transaction Service, and Notification Service containers.
+A larger value can be useful when many logs have been generated since the traced request was executed.
+
+### Docker Validation
+
+Before searching the logs, the script verifies that:
+
+- The Docker CLI is installed and available in `PATH`
+- The Docker Engine is running
+- The configured containers can be accessed
+
+If Docker Desktop is not running, the script returns a clean error:
+
+```text
+Log search failed.
+Docker Engine is not available. Start Docker Desktop and try again.
+```
+
+If logs cannot be read from one or more containers, the script reports that the displayed results may be incomplete.
+
+### Searched Containers
+
+The script searches the following containers:
+
+- API Gateway
+- User Service
+- Account Service
+- Transaction Service
+- Notification Service
+
+### Exit Codes
+
+```text
+0 = Matching logs were found
+1 = The search completed successfully, but no matching logs were found
+2 = Docker or one or more containers could not be accessed
+```
+
+These exit codes allow the script to distinguish between an empty search result and a technical failure.
 
 Docker container logs remain available for deeper debugging. The script only provides a filtered view and does not modify or delete the original logs.
 
