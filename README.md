@@ -961,6 +961,49 @@ These exit codes allow the script to distinguish between an empty search result 
 
 Docker container logs remain available for deeper debugging. The script only provides a filtered view and does not modify or delete the original logs.
 
+### Deeper Debugging
+
+The correlation log-search script provides a filtered view of the request flow. When additional context is required, the complete Docker container logs remain available.
+
+View the latest logs for a specific service:
+
+```powershell
+docker logs user-service --tail 500
+```
+
+Follow logs in real time while executing a request from another terminal:
+
+```powershell
+docker logs user-service --follow --tail 100
+```
+
+Search for a correlation ID together with the surrounding log lines:
+
+```powershell
+$correlationId = "your-complete-correlation-id"
+
+docker logs user-service --tail 2000 2>&1 |
+    Select-String `
+        -Pattern ([regex]::Escape($correlationId)) `
+        -Context 10,20
+```
+
+View warnings, errors, exceptions, and server failures:
+
+```powershell
+docker logs user-service --tail 2000 2>&1 |
+    Select-String `
+        -Pattern "ERROR|WARN|Exception|Caused by|failed|status=5\d{2}"
+```
+
+Check the current state of all containers:
+
+```powershell
+docker compose ps
+```
+
+The log-search script does not modify or delete the original Docker logs.
+
 ---
 
 ## Example API Flow
