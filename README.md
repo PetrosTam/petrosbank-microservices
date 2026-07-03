@@ -722,11 +722,13 @@ Default transient-request policy:
 Retry delays: 2s, 4s
 ```
 
-Requests that create or modify data, such as user registration and account creation, are not automatically retried. This avoids duplicate operations if a request succeeds but its response is lost.
+Non-idempotent resource-creation operations, specifically user registration and account creation, are not automatically retried. This avoids duplicate resources if a request succeeds but its response is lost.
+
+Logout is also not automatically retried because the first request may already have revoked the refresh token even if its response was not received.
 
 ### Correlation ID
 
-A unique correlation ID is generated for every smoke-test execution and sent through all requests.
+A unique correlation ID is generated for every smoke-test execution and sent with the Gateway route-readiness request and all end-to-end API requests.
 
 Example:
 
@@ -736,7 +738,7 @@ Correlation ID: petros-api-smoke-test-4327316d-7b71-463c-8cbd-3ae97c4585bf
 
 The correlation ID can be used with the log-search script to locate the related request flow across the API Gateway and downstream services.
 
-### Example Output
+### Example Successful Output
 
 ```text
 PetrosBank Microservices - API Smoke Test
@@ -801,7 +803,7 @@ The exit codes allow the script to be used in local automation and future CI/CD 
 
 ### Custom Configuration
 
-The default URL, retry policies, and request timeout can be overridden through command-line parameters:
+The API Gateway base URL, retry policies, and request timeout can be overridden through command-line parameters:
 
 ```powershell
 powershell -ExecutionPolicy Bypass `
