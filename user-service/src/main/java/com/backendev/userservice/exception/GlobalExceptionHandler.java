@@ -117,9 +117,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
-    public ResponseEntity<HttpErrorResponse> handleNoResourceFoundException(
-            NoResourceFoundException exception
-    ) {
+    public ResponseEntity<HttpErrorResponse> handleNoResourceFoundException() {
         HttpErrorResponse httpErrorResponse = buildErrorResponse(
                 HttpStatus.NOT_FOUND,
                 "The requested resource was not found.",
