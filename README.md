@@ -313,6 +313,7 @@ The real `.env` file should not be committed to Git because it may contain secre
 | Variable | Description | Example |
 |---|---|---|
 | `JWT_SECRET` | Secret key used for JWT signing | `your-secret-key` |
+| `JWT_ACCESS_TOKEN_EXPIRATION_MS` | Access token lifetime in milliseconds | `900000` |
 | `DB_USER` | PostgreSQL username | `postgres` |
 | `DB_PASS` | PostgreSQL password | `postgres` |
 | `MAIL_USERNAME` | SMTP username for notification service | `dummy@gmail.com` |
@@ -394,6 +395,8 @@ Example response:
 
 ### 3. Use access token
 
+Include the access token in the `Authorization` header of protected requests:
+
 ```http
 Authorization: Bearer <access-token>
 ```
@@ -412,6 +415,8 @@ Example body:
 }
 ```
 
+A valid refresh token returns a new access token.
+
 ### 5. Logout
 
 ```http
@@ -425,6 +430,26 @@ Example body:
   "refreshToken": "<refresh-token>"
 }
 ```
+
+Expected response:
+
+```text
+HTTP 204 No Content
+```
+
+Logout revokes the supplied refresh token. Attempting to reuse the same refresh token after logout returns:
+
+```text
+HTTP 401 Unauthorized
+```
+
+### Token Lifetime and Logout Behavior
+
+Access tokens expire after 15 minutes by default. The lifetime can be configured through the `JWT_ACCESS_TOKEN_EXPIRATION_MS` environment variable.
+
+Each access token includes a unique JWT ID (`jti`) to support future token revocation and blacklist mechanisms.
+
+Logout revokes the user's refresh token. An access token that has already been issued remains valid until its configured expiration time.
 
 ---
 
