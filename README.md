@@ -1004,6 +1004,8 @@ docker compose ps
 
 The log-search script does not modify or delete the original Docker logs.
 
+For a complete diagnostic workflow covering Docker, Spring Boot, Eureka, PostgreSQL, Kafka, and authentication failures, see the [Troubleshooting Guide](docs/TROUBLESHOOTING.md).
+
 ---
 
 ## Example API Flow
