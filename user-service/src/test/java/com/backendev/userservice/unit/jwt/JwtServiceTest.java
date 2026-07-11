@@ -44,12 +44,17 @@ class JwtServiceTest {
     private static final long TOKEN_EXPIRATION_TIME = 900000; // 15 minutes
 
     @BeforeEach
-    void setUp(){
+    void setUp() {
         testSecretKey = Base64.getEncoder().encodeToString(
                 "mySecretKeyForTestingJwtTokensWithSufficientLength123".getBytes()
         );
 
         ReflectionTestUtils.setField(jwtService, "secretKey", testSecretKey);
+        ReflectionTestUtils.setField(
+                jwtService,
+                "accessTokenExpirationMs",
+                TOKEN_EXPIRATION_TIME
+        );
 
         testUsername = "test@example.com";
         testClaims = new HashMap<>();
@@ -292,8 +297,8 @@ class JwtServiceTest {
         Date pastDate = new Date(System.currentTimeMillis() - 1000); // 1 second ago
 
         return Jwts.builder()
-                .subject(testUsername)
                 .claims(testClaims)
+                .subject(testUsername)
                 .issuedAt(new Date(System.currentTimeMillis() - 2000))
                 .expiration(pastDate)
                 .signWith(key)

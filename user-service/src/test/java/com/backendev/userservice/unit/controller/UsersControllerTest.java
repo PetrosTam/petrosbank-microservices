@@ -125,13 +125,19 @@ class UsersControllerTest {
         when(loginService.login(any(AuthRequest.class)))
                 .thenThrow(new BadCredentialsException("Invalid credentials"));
 
-        BadCredentialsException exception = assertThrows(BadCredentialsException.class, () -> usersController.login(request));
+        BadCredentialsException exception = assertThrows(
+                BadCredentialsException.class,
+                () -> usersController.login(request)
+        );
 
         assertEquals("Invalid credentials", exception.getMessage());
         verify(loginService).login(any(AuthRequest.class));
-        verify(auditService).auditLog(AuditEventType.LOGIN_FAILURE, "", "Invalid credentials");
+        verify(auditService).auditLog(
+                AuditEventType.LOGIN_FAILURE,
+                "test@example.com",
+                "Invalid credentials"
+        );
     }
-
 
     @Test
     void getUserProfile_ValidIdAndAuthentication_ShouldReturnUserDTO() {
