@@ -31,6 +31,30 @@ services:
     networks:
       - microservices-network
 
+  # Redis
+  redis:
+    image: redis:7.4-alpine
+    container_name: redis
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - microservices-network
+
   # Eureka Server
   eureka-server:
     build: ./eureka-server
@@ -77,6 +101,10 @@ services:
     environment:
       - JWT_SECRET=${JWT_SECRET}
       - JWT_ACCESS_TOKEN_EXPIRATION_MS=${JWT_ACCESS_TOKEN_EXPIRATION_MS:-900000}
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_DATA_REDIS_CONNECT_TIMEOUT=2s
+      - SPRING_DATA_REDIS_TIMEOUT=2s
       - SPRING_PROFILES_ACTIVE=docker
       - SPRING_DATASOURCE_URL=jdbc:postgresql://user-db:5432/usersdb
       - SPRING_DATASOURCE_USERNAME=${DB_USER}
@@ -92,6 +120,8 @@ services:
         condition: service_started
       kafka:
         condition: service_started
+      redis:
+        condition: service_healthy
       eureka-server:
         condition: service_healthy
     networks:
@@ -121,6 +151,10 @@ services:
       - "8082:8082"
     environment:
       - JWT_SECRET=${JWT_SECRET}
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_DATA_REDIS_CONNECT_TIMEOUT=2s
+      - SPRING_DATA_REDIS_TIMEOUT=2s
       - SPRING_PROFILES_ACTIVE=docker
       - SPRING_DATASOURCE_URL=jdbc:postgresql://account-db:5432/accountdb
       - SPRING_DATASOURCE_USERNAME=${DB_USER}
@@ -136,6 +170,8 @@ services:
         condition: service_started
       kafka:
         condition: service_started
+      redis:
+        condition: service_healthy
       eureka-server:
         condition: service_healthy
     networks:
@@ -165,6 +201,10 @@ services:
       - "8083:8083"
     environment:
       - JWT_SECRET=${JWT_SECRET}
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_DATA_REDIS_CONNECT_TIMEOUT=2s
+      - SPRING_DATA_REDIS_TIMEOUT=2s
       - SPRING_PROFILES_ACTIVE=docker
       - SPRING_DATASOURCE_URL=jdbc:postgresql://transaction-db:5432/transactiondb
       - SPRING_DATASOURCE_USERNAME=${DB_USER}
@@ -180,10 +220,12 @@ services:
         condition: service_started
       kafka:
         condition: service_started
+      redis:
+        condition: service_healthy
       eureka-server:
         condition: service_healthy
     networks:
-        - microservices-network
+      - microservices-network
 
   transaction-db:
     image: postgres:15
@@ -247,6 +289,7 @@ volumes:
   account_db_data:
   transaction_db_data:
   notification_db_data:
+  redis_data:
 
 networks:
   microservices-network:
